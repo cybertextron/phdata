@@ -1,0 +1,7 @@
+*.pyc
+*.txt
+spark-warehouse/*
+ip_output/*
+time_range/*
+__pycache__
+.python-version
