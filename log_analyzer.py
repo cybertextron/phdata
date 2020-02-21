@@ -1,20 +1,27 @@
 from pyspark import SparkContext, SparkConf
+from kafka import KafkaConsumer, KafkaProducer
+from kafka.errors import KafkaError
 
 import apache_access_log
 import argparse
 import os
+import sys
 import shutil
+import pika
+import logging
+logging.basicConfig()
 
 
-def main(args):
-    if not args.log_file:
+
+
+def find_attack(log_file):
+    if not log_file:
         raise Exception("Log file required.")
-        os.exit(1)
     
     conf = SparkConf().setAppName('Log Analyzer').setMaster('local[*]')
     sc = SparkContext(conf=conf)
 
-    access_logs = (sc.textFile(args.log_file)
+    access_logs = (sc.textFile(log_file)
                     .map(apache_access_log.parse_apache_log_line)
                     .cache())
 
@@ -63,12 +70,60 @@ def main(args):
                     .takeOrdered(10, lambda s: -1 * s[1]))
     print("Top Endpoints: {}".format(topEndpoints))
 
+
+def send_message(log_file):
+    connection = pika.BlockingConnection(pika.ConnectionParameters('127.0.0.1'))
+    channel = connection.channel() # start a channel
+    channel.queue_declare(queue='log_analyzer') # Declare a queue
+    # send a message
+
+    with open(log_file) as fp:
+        line = fp.read()
+        print("Sending log information to the Queue...")
+        channel.basic_publish(exchange='', routing_key='log_analyzer', body=line)
+        connection.close()
+
+
+def subscribe():
+    connection = pika.BlockingConnection(pika.ConnectionParameters('127.0.0.1'))
+    channel = connection.channel() # start a channel
+    channel.queue_declare(queue='log_analyzer') # Declare a queue
+
+    fp = open('output.txt', 'wb')
+
+    def callback(ch, method, properties, body):
+        fp.write(body)
+    
+    channel.basic_consume(queue='log_analyzer', on_message_callback=callback, auto_ack=True)
+    print(' [*] Waiting for messages. To exit press CTRL+C')
+
+    channel.start_consuming()
+    fp.close()
+
+
+def main(args):
+    if args.consume:
+        send_message(args.log_file)
+        subscribe()
+
+    if args.analyzer:
+        find_attack('output.txt')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Detects an DDOS attack.')
     parser.add_argument('--log_file',
                         action='store',
                         dest='log_file',
                         help='Specify the log file to be processed.')
+    parser.add_argument('--consume',
+                        action='store_true',
+                        default=False,
+                        help='Run in the "consume" mode')
+    parser.add_argument('--analyzer',
+                        action='store_true',
+                        default=False,
+                        help='Run the analyzer')
     parser.add_argument('--time_range_output',
                         action='store',
                         dest='time_range_output',

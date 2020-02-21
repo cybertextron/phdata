@@ -1,7 +1,12 @@
+Install RabbitMQ:
+=================
+In a MacOS, run:
+```brew install rabbitmq```
+
 Help:
 =====
 ```python3.7 log_analyzer.py --help
-usage: log_analyzer.py [-h] [--log_file LOG_FILE]
+usage: log_analyzer.py [-h] [--log_file LOG_FILE] [--consume] [--analyzer]
                        [--time_range_output TIME_RANGE_OUTPUT]
                        [--ip_output IP_OUTPUT]
 
@@ -10,15 +15,20 @@ Detects an DDOS attack.
 optional arguments:
   -h, --help            show this help message and exit
   --log_file LOG_FILE   Specify the log file to be processed.
+  --consume             Run in the "consume" mode
+  --analyzer            Run the analyzer
   --time_range_output TIME_RANGE_OUTPUT
                         Specify the destination of the time range analysis.
   --ip_output IP_OUTPUT
                         Specify the destination of the IP address analysis.```
 
 
-To execute, simply run:
-=========================
-```python3.7 log_analyzer.py --log_file <path_to_log_file>```
+To execute, in one terminal, run the consumer:
+==============================================
+```python3.7 log_analyzer.py --consumer --log_file <path_to_log_file>```
+
+And then in another terminal, run the analyzer:
+```python3.7 log_analyzer.py --analyzer --log_file <path_to_log_file>```
 
 Please use Python 3.7.5 or below, since PySpark does not support Python 3.8.1.
 
